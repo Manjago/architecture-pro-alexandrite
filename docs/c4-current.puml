@@ -1,0 +1,53 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C4 Container Diagram - Alexandrite (Current State)
+
+Person(customer, "Customer", "Uses website to make orders")
+Person(seller, "Seller", "External B2B partner using API")
+Person(api_user, "API User", "External integration user")
+Person(operator, "Operator", "Manufacturing staff using MES")
+
+System_Boundary(alexandrite, "Jewelry Store System") {
+    
+    Container(shop_fe, "Internet Shop Frontend", "Vue, TypeScript, Threejs", "User interface for orders and 3D modeling")
+    Container(shop_api, "Shop API", "Spring Boot", "Process orders, handle 3D files")
+    ContainerDb(shop_db, "Shop DB", "PostgreSQL", "Orders, customers, main data")
+    
+    Container(crm_fe, "CRM Frontend", "Vue, TypeScript", "Interface for sales managers")
+    Container(crm_api, "CRM API", "Spring Boot", "Business logic for CRM")
+    
+    Container(mes_fe, "MES Frontend", "React, TypeScript", "Interface for operators")
+    Container(mes_api, "MES API", "C#", "Calculates price, assigns orders")
+    ContainerDb(mes_db, "MES DB", "PostgreSQL", "Manufacturing orders, statuses")
+    
+    Container(rabbitmq, "Messages Queue", "RabbitMQ", "Async communication")
+    Container(s3, "3D Files Storage", "S3", "Stores 3D models")
+}
+
+Rel(customer, shop_fe, "Uses")
+Rel(shop_fe, shop_api, "API calls")
+Rel(shop_api, s3, "Uploads/Reads files")
+Rel(shop_api, shop_db, "Reads/Writes")
+
+Rel(seller, shop_api, "Uses API")
+Rel(api_user, shop_api, "Uses API")
+
+Rel(crm_fe, crm_api, "API calls")
+' Critical Analysis Point: CRM API accessing Shop DB directly implies tight coupling
+Rel(crm_api, shop_db, "Reads/Writes orders") 
+
+Rel(operator, mes_fe, "Uses")
+Rel(mes_fe, mes_api, "API calls")
+Rel(mes_api, mes_db, "Reads/Writes")
+
+' Messaging flow
+Rel(mes_api, rabbitmq, "Publishes status updates")
+Rel(rabbitmq, crm_api, "Consumes updates")
+
+' Note: The text mentions MES calculating prices, but the XML didn't explicitly show Shop calling MES. 
+' Assuming integration might be via shared DB or implicit for now, but purely based on diagram logic:
+' The diagram in XML does NOT show a direct link between Shop API and MES API.
+' This is a potential architectural gap to note in Task 1.
+
+@enduml

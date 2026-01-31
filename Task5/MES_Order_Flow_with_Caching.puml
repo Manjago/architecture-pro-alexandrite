@@ -1,0 +1,85 @@
+@startuml
+autonumber
+title Sequence Diagram: MES Dashboard Read & Update with Cache
+
+actor Operator
+participant "MES Frontend" as FE
+participant "MES API" as API
+participant "Redis (Cache)" as Cache
+database "MES DB" as DB
+
+== Scenario 1: Operator Views Dashboard (Read) ==
+
+Operator -> FE: Open Dashboard (Status=NEW)
+FE -> API: GET /orders?status=NEW
+activate API
+
+API -> Cache: GET orders:status:NEW
+activate Cache
+Cache --> API: (Miss) null
+deactivate Cache
+
+note right of API: Cache Miss -> Read from DB
+
+API -> DB: SELECT * FROM orders WHERE status='NEW'
+activate DB
+DB --> API: Returns List[Order]
+deactivate DB
+
+API -> Cache: SET orders:status:NEW, List[Order], TTL=300s
+activate Cache
+Cache --> API: OK
+deactivate Cache
+
+API --> FE: Returns List[Order]
+deactivate API
+FE --> Operator: Shows Orders List
+
+== Scenario 2: Operator Updates Order Status (Write) ==
+
+Operator -> FE: Click "Start Work" (Order ID=123)
+FE -> API: POST /orders/123/status {status: IN_PROGRESS}
+activate API
+
+API -> DB: UPDATE orders SET status='IN_PROGRESS' WHERE id=123
+activate DB
+DB --> API: OK
+deactivate DB
+
+note right of API: Write-Strategy: Invalidate related keys
+
+API -> Cache: DEL orders:status:NEW
+activate Cache
+Cache --> API: OK
+deactivate Cache
+
+API -> Cache: DEL orders:status:IN_PROGRESS
+activate Cache
+Cache --> API: OK
+deactivate Cache
+
+API --> FE: 200 OK
+deactivate API
+
+== Scenario 3: Operator Refreshes Dashboard (Read after Write) ==
+
+FE -> API: GET /orders?status=NEW
+activate API
+API -> Cache: GET orders:status:NEW
+activate Cache
+Cache --> API: (Miss) null
+deactivate Cache
+
+API -> DB: SELECT * FROM orders WHERE status='NEW'
+activate DB
+DB --> API: Returns Updated List
+deactivate DB
+
+API -> Cache: SET orders:status:NEW, Updated List
+activate Cache
+deactivate Cache
+
+API --> FE: Updated List
+deactivate API
+
+@enduml
