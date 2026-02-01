@@ -136,7 +136,3 @@ kubectl port-forward svc/simplest-query -n observability 16686:16686
 | **Logging** | Filebeat + Logstash + OpenSearch + Kibana |
 | **Caching** | Redis (Yandex Managed) |
 | **Alerting** | Alertmanager + Slack/PagerDuty |
-
----
-
-*Спринт 6 / Архитектура ПО PRO / 2024*
