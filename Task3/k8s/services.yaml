@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-a
+  template:
+    metadata:
+      labels:
+        app: service-a
+    spec:
+      containers:
+        - name: service-a
+          image: service-a:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SERVICE_B_URL
+              value: "http://service-b:8080"
+            - name: OTEL_SERVICE_NAME
+              value: "service-a"
+            # ВАЖНО: Добавили console для отладки
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp,console"
+            # ВАЖНО: Порт 4318 (HTTP) вместо 4317
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://simplest-collector.observability.svc:4318"
+            # ВАЖНО: Явно указываем протокол
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "http/protobuf"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-a
+spec:
+  selector:
+    app: service-a
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-b
+  template:
+    metadata:
+      labels:
+        app: service-b
+    spec:
+      containers:
+        - name: service-b
+          image: service-b:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: "service-b"
+            # То же самое для сервиса B
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp,console"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://simplest-collector.observability.svc:4318"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "http/protobuf"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-b
+spec:
+  selector:
+    app: service-b
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
